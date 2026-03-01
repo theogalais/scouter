@@ -254,6 +254,13 @@ try {
     error_log("Erreur lors du chargement des projets: " . $e->getMessage());
     $hasProjects = false;
 }
+
+// Mode partiel : renvoyer uniquement le HTML de la liste des projets (AJAX refresh)
+if (isset($_GET['partial']) && $_GET['partial'] === 'projects') {
+    header('Content-Type: text/html; charset=utf-8');
+    include(__DIR__ . '/components/project-list-partial.php');
+    exit;
+}
 ?>
 <!DOCTYPE html>
 <html lang="<?= I18n::getInstance()->getLang() ?>">
@@ -444,6 +451,7 @@ try {
             </div>
             <?php endif; ?>
 
+            <div id="projectListContainer">
             <?php if(!$hasProjects): ?>
                 <div class="empty-state">
                     <div class="empty-state-icon">
@@ -573,6 +581,7 @@ try {
                 <?php endif; ?>
                 
             <?php endif; ?>
+            </div><!-- /projectListContainer -->
         </div>
     </div>
 
@@ -1665,6 +1674,27 @@ try {
         });
 
         // Create project
+        // Rafraîchit la liste des projets sans recharger la page
+        async function refreshProjectList() {
+            const container = document.getElementById('projectListContainer');
+            if (!container) return;
+            try {
+                const resp = await fetch(window.location.pathname + '?partial=projects', { credentials: 'same-origin' });
+                if (!resp.ok) return;
+                const html = await resp.text();
+                container.innerHTML = html;
+                // Réappliquer l'onglet actif et le tri/filtre
+                if (typeof switchProjectsTab === 'function') {
+                    switchProjectsTab(currentProjectsTab || 'my', false);
+                }
+                if (typeof sortDomains === 'function') {
+                    sortDomains();
+                }
+            } catch (e) {
+                // Silencieux — pas grave si le refresh échoue
+            }
+        }
+
         async function createProject(event) {
             event.preventDefault();
             
@@ -1793,9 +1823,9 @@ try {
                 // Démarrer le monitoring dans le panel latéral
                 CrawlPanel.start(result.project_dir, projectName, result.crawl_id);
 
-                // Reload the page after a short delay so the new project card appears
+                // Rafraîchir la liste des projets sans recharger la page
                 setTimeout(() => {
-                    window.location.reload();
+                    refreshProjectList();
                 }, 1500);
 
             } catch (error) {

@@ -1601,18 +1601,21 @@ const CrawlPanel = {
     },
 
     /**
-     * Reload the homepage to refresh project list after a crawl state change.
-     * Uses a flag to prevent multiple simultaneous reloads.
+     * Refresh the project list without full page reload.
+     * Falls back to full reload if refreshProjectList is not available.
      */
     scheduleHomepageReload(delayMs = 1500) {
         if (this._homepageReloadScheduled) return;
         if (!this.isOnIndexPage()) return;
-        // Don't reload if the panel is open (user is looking at logs)
-        if (this.state.isOpen) return;
 
         this._homepageReloadScheduled = true;
         setTimeout(() => {
-            window.location.reload();
+            this._homepageReloadScheduled = false;
+            if (typeof refreshProjectList === 'function') {
+                refreshProjectList();
+            } else {
+                window.location.reload();
+            }
         }, delayMs);
     }
 };
