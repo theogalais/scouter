@@ -43,8 +43,8 @@ RUN composer update --no-interaction --prefer-dist --optimize-autoloader
 # Configure Nginx
 COPY docker/nginx.conf /etc/nginx/sites-available/default
 
-# Setup Cron
-RUN echo "0 * * * * root /usr/local/bin/php /app/scripts/watchdog.php >> /proc/1/fd/1 2>> /proc/1/fd/2" > /etc/cron.d/scouter-cron && \
+# Setup Cron (source env vars so cron inherits DATABASE_URL etc.)
+RUN echo "0 * * * * root . /etc/environment && /usr/local/bin/php /app/scripts/watchdog.php >> /proc/1/fd/1 2>> /proc/1/fd/2" > /etc/cron.d/scouter-cron && \
     chmod 0644 /etc/cron.d/scouter-cron && \
     crontab /etc/cron.d/scouter-cron
 
@@ -81,6 +81,9 @@ for i in $(seq 1 30); do\n\
     echo "  Attempt $i/30 - waiting..."\n\
     sleep 1\n\
 done\n\
+\n\
+# Export env vars for cron\n\
+printenv | grep -v "no_proxy" >> /etc/environment\n\
 \n\
 # Run migrations\n\
 echo ""\n\
