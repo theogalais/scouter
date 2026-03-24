@@ -16,11 +16,21 @@ $rendererUrl = getenv('RENDERER_URL') ?: 'http://renderer:3000';
 echo "[Worker $workerId] Starting up...\n";
 echo "[Worker $workerId] Config: Curl=$maxConcurrentCurl, Chrome=$maxConcurrentChrome\n";
 
-// DB Connection
-try {
-    $db = PostgresDatabase::getInstance()->getConnection();
-} catch (Exception $e) {
-    echo "[Worker $workerId] FATAL: Could not connect to database. " . $e->getMessage() . "\n";
+// DB Connection (retry up to 30 seconds, like entrypoint)
+$db = null;
+for ($attempt = 1; $attempt <= 15; $attempt++) {
+    try {
+        $db = PostgresDatabase::getInstance()->getConnection();
+        echo "[Worker $workerId] Connected to database\n";
+        break;
+    } catch (Exception $e) {
+        echo "[Worker $workerId] DB connection attempt $attempt/15: " . $e->getMessage() . "\n";
+        PostgresDatabase::resetInstance();
+        sleep(2);
+    }
+}
+if ($db === null) {
+    echo "[Worker $workerId] FATAL: Could not connect to database after 15 attempts\n";
     exit(1);
 }
 

@@ -43,10 +43,11 @@ RUN composer update --no-interaction --prefer-dist --optimize-autoloader
 # Configure Nginx
 COPY docker/nginx.conf /etc/nginx/sites-available/default
 
-# Setup Cron (source env vars so cron inherits DATABASE_URL etc.)
-RUN echo "0 * * * * root . /etc/environment && /usr/local/bin/php /app/scripts/watchdog.php >> /proc/1/fd/1 2>> /proc/1/fd/2" > /etc/cron.d/scouter-cron && \
-    chmod 0644 /etc/cron.d/scouter-cron && \
-    crontab /etc/cron.d/scouter-cron
+# Setup Cron in /etc/cron.d/ (system cron format with user field)
+# Do NOT also load via crontab, as user crontab format has no user field
+# and "root" would be interpreted as a command
+RUN printf "0 * * * * root . /etc/environment && /usr/local/bin/php /app/scripts/watchdog.php >> /proc/1/fd/1 2>> /proc/1/fd/2\n" > /etc/cron.d/scouter-cron && \
+    chmod 0644 /etc/cron.d/scouter-cron
 
 # Configure Supervisor (version prod par défaut)
 COPY docker/supervisord.prod.conf /etc/supervisor/conf.d/supervisord.conf
@@ -82,8 +83,8 @@ for i in $(seq 1 30); do\n\
     sleep 1\n\
 done\n\
 \n\
-# Export env vars for cron\n\
-printenv | grep -v "no_proxy" >> /etc/environment\n\
+# Export env vars for cron (prefix with export so child processes inherit them)\n\
+printenv | grep -v "no_proxy" | sed '\''s/^/export /'\'' >> /etc/environment\n\
 \n\
 # Run migrations\n\
 echo ""\n\
